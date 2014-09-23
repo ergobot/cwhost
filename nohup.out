@@ -1,0 +1,13 @@
+
+(gedit:2840): Gtk-CRITICAL **: _gtk_widget_captured_event: assertion 'WIDGET_REALIZED_FOR_EVENT (widget, event)' failed
+
+(gedit:3225): Gtk-WARNING **: GtkScrolledWindow 0x1ccc880 is mapped but visible child GtkScrollbar 0x1cd6a60 is not mapped
+
+(gedit:3225): Gtk-WARNING **: GtkScrolledWindow 0x1ccc880 is mapped but visible child GtkScrollbar 0x1cd6c60 is not mapped
+
+(gedit:3225): Gtk-WARNING **: GtkScrolledWindow 0x1ccc880 is mapped but visible child GtkScrollbar 0x1cd6a60 is not mapped
+
+(gedit:3225): Gtk-WARNING **: GtkScrolledWindow 0x1ccc880 is mapped but visible child GtkScrollbar 0x1cd6c60 is not mapped
+
+(gedit:3225): Gdk-WARNING **: gedit: Fatal IO error 0 (Success) on X server :0.
+

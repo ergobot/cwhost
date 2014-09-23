@@ -3,14 +3,15 @@
 var fs = require("fs"),
 	path = require("path"),
 	exec = require('child_process').exec,
-	unzip = require('unzip');
+	unzip = require('unzip'),
+	async = require('asyncjs');
 
 var appRoot = path.resolve("./");
 var printpath = path.join(appRoot, "print");
 var debug = true;
 
 var sliceType = '';
-getProjectSliceType();
+sliceType = getProjectSliceType();
 console.log("sliceType = %s", sliceType);
 // var testcol = new Array();
 
@@ -23,15 +24,16 @@ console.log("sliceType = %s", sliceType);
 // }
 
 function getProjectSliceType() {
-	
-	fs.readdir(printpath, function(err, files) {
+	var s = '';
+
+	async.readdir(printpath, function(err, files) {
 		if (err) {
 			throw err;
 		}
 
 		var f = files.map(function(file) {
 			return path.join(printpath, file);
-		}).filter(function(file) {
+		}).filter(function(file) {	
 			return fs.statSync(file).isFile();
 		}).filter(function(file) {
 			return path.extname(file) != '.gcode';
@@ -65,14 +67,14 @@ function getProjectSliceType() {
 		if (svg && png) {
 			throw "Unknown slice image type";
 		} else if (svg) {
-			sliceType = ".svg";
+			s = ".svg";
 		} else if (png) {
-			sliceType = ".png";
+			s = ".png";
 		}
 
 		
 
 	});
 	
-	
+	return s;		
 }

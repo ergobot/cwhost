@@ -1,33 +1,15 @@
-// module.exports = {
-//     setupproject: function(pathtoprojectzip) {
-//         if (fs.existsSync(pathtoprojectzip)) {
-//             console.log("Project exists, %s", pathtoprojectzip);
-
-//             console.log("Setting up print directory, %s", printpath);
-//             mkprintdir();
-
-
-
-//             console.log("Unzipping project to %s", printpath);
-//             unzipproject(pathtoprojectzip);
-
-//         }
-//     },
-
-// };
-
 
 var fs = require("fs"),
     path = require("path"),
     exec = require('child_process').exec,
-    unzip = require('unzip');
+    unzip = require('unzip'),
+    fse = require("fs-extra");
+
 
 var appRoot = path.resolve("./");
 var printpath = path.join(appRoot, "print");
 var debug = true;
 
-//getFiles(appRoot);
-getProjectSliceType();
 
 if (debug) {
     console.log("\n********* Global Messages *********");
@@ -35,180 +17,161 @@ if (debug) {
     console.log("***********************************\n");
 }
 
-// getFiles(appRoot);
-//getProjects(appRoot);
-// getDirectories(appRoot);
-// mkprintdir();
-var testprojectzipfile = path.join(appRoot, "airesheadtest.zip");
-// setupproject(testprojectzipfile);
+// General routine
 
-    function setupproject(pathtoprojectzip) {
-        if (fs.existsSync(pathtoprojectzip)) {
-            console.log("Project exists, %s", pathtoprojectzip);
+// get all the projects
+getProjects(appRoot);
 
-            console.log("Setting up print directory, %s", printpath);
-            mkprintdir();
+// select a project
+var selectedProject = path.join(appRoot, "airesheadtest\.zip");
+
+// setup the working directory for the selected project
+setupproject(selectedProject);
+
+// determine the sliceType
+// var sliceType = getProjectSliceType();
+// console.log("Slice type: %s", sliceType);
+
+// get all of the slice files
+var slices;
+
+
+function filterFilesByExt(fileDir, files, fileExtension) {
+    f = files.map(function(file) {
+        return path.join(fileDir, file);
+    }).filter(function(file) {
+        return fs.statSync(file).isFile();
+    }).filter(function(file) {
+        return path.extname(file) == fileExtension;
+    });
+    return f;
+}
+
+function lsSync(directory) {
+    return fs.readdirSync(directory);
+}
+
+
+function setupproject(pathtoprojectzip) {
+    if (fs.existsSync(pathtoprojectzip)) {
+        console.log("Project exists, %s", pathtoprojectzip);
+
+        console.log("Setting up print directory, %s", printpath);
+        // mkprintdir();
+        fse.removeSync(printpath);
+        fse.mkdirSync(printpath);
 
 
 
-            console.log("Unzipping project to %s", printpath);
-            unzipproject(pathtoprojectzip);
+        console.log("Unzipping project to %s", printpath);
+        unzipproject(pathtoprojectzip);
 
-        }
-    };
+    }
+};
 
 function unzipproject(pathtoprojectzip) {
     fs.createReadStream(pathtoprojectzip).pipe(unzip.Extract({
         path: printpath
-    }));
-}
+    })).on('close', getSlices);
 
-function mkprintdir() {
-    console.log(printpath);
-    if (fs.existsSync(printpath)) {
-        console.log("printpath exists, removing %s", printpath);
-        exec('rm -r ' + printpath, function(err, stdout, stderr) {
-            if (err != null) {
-                console.log(err);
-                console.log(stdout);
-                console.log(stderr);
-                console.log("Couldn't remove directory, %s", printpath);
-            } else {
-                console.log("Removed directory and all contents, %s", printpath);
-                console.log("Creating directory, %s", printpath);
-                fs.mkdir(printpath);
-            }
-        });
-    } else {
-        console.log("Creating directory, %s", printpath);
-        fs.mkdir(printpath);
-    }
+
 }
 
 function getProjects() {
-    var f;
-    fs.readdir(appRoot, function(err, files) {
-        if (err) {
-            throw err;
-        }
+    var f = lsSync(appRoot);
 
-        f = files.map(function(file) {
-            return path.join(appRoot, file);
-        }).filter(function(file) {
-            return fs.statSync(file).isFile();
-        }).filter(function(file) {
-            return path.extname(file) == '.zip';
+    var p = filterFilesByExt(appRoot, f, '.zip');
+
+    if (debug) {
+        // console.log("debug is on");
+
+        console.log("********* Getting Projects *********");
+        p.forEach(function(file) {
+            console.log("%s (%s)", file, path.extname(file));
         });
+        console.log("************************************\n");
+    }
+    // console.log(p.length);
 
-        // f = files.filter(function(file){return path.extname(file)=='.zip';});
+    return p;
+}
 
-        if (debug) {
-            // console.log("debug is on");
+function getProjectSliceType() {
+    var s = '';
 
-            console.log("********* Getting Projects *********");
-            f.forEach(function(file) {
-                console.log("%s (%s)", file, path.extname(file));
-            });
-            console.log("************************************\n");
-        }
+    console.log("Getting files from: %s", printpath);
+    var files = lsSync(printpath);
 
-
+    var f = files.map(function(file) {
+        return path.join(printpath, file);
+    }).filter(function(file) {
+        return fs.statSync(file).isFile();
+    }).filter(function(file) {
+        return path.extname(file) != '.gcode';
+    }).filter(function(file) {
+        return path.extname(file) == '.png' || path.extname(file) == '.zip';
     });
-    return f;
-
-}
 
 
-function getProjectSliceType(){
-   var types = [];
-   var f;
-    fs.readdir(printpath, function(err, files) {
-        if (err) {
-            throw err;
-        }
+    var svg = false;
+    var png = false;
 
-        f = files.map(function(file) {
-            return path.join(printpath, file);
-        }).filter(function(file) {
-            return fs.statSync(file).isFile();
-        }).filter(function(file) {
-            return path.extname(file) != '.gcode';
+    if (debug) {
+        console.log("********* Getting Types *********");
+        f.forEach(function(file) {
+            //console.log("%s (%s)", file, path.basename(file));
+
+            if (path.extname(file) === '.svg') {
+                svg = true;
+            } else if (path.extname(file) === '.png') {
+                png = true;
+            }
+
         });
 
+        console.log("SVG = %s", svg);
+        console.log("PNG = %s", png);
+        console.log("*********************************\n");
+    }
 
-        if (debug) {
-            console.log("********* Getting Types *********");
-            f.forEach(function(file) {
-                //console.log("%s (%s)", file, path.basename(file));
-                if (types.indexOf(path.extname(file) == -1)){
-                    // doesn't exist in the array, add the element
-                    console.log("Couldn't find the ext, %s", path.extname(file));
-                    types.push(path.extname(file));
-                }
-                
-                
+    // return ext;// return ext;// return ext;
+    if (svg && png) {
+        throw "Unknown slice image type";
+    } else if (svg) {
+        s = ".svg";
+    } else if (png) {
+        s = ".png";
+    }
 
-            });
-            // types.forEach(function(fextname){
-            //     console.log("Extension: %s", fextname);
-            // });
-            console.log(types.length);
-            console.log("*********************************\n");
-        }
 
-    }); 
 
+    return s;
 }
 
-function getSlices(slicetype) {
+function getSlices() {
     // slice type = '.png' or '.svg'
-    var slices;
-    fs.readdir(printpath, function(err, files) {
-        if (err) {
-            throw err;
-        }
 
-        slices = files.map(function(file) {
-            return path.join(printpath, file);
-        }).filter(function(file) {
-            return fs.statSync(file).isFile();
-        }).filter(function(file) {
-            return path.extname(file) == slicetype;
-        });
+    var sliceType = getProjectSliceType();
+    // console.log(sliceType);
+    var f = lsSync(printpath);
 
-
-        if (debug) {
-            console.log("********* Getting Projects *********");
-            slices.forEach(function(file) {
-                console.log("%s (%s)", file, path.basename(file, 'slicetype'));
-            });
-            console.log("*********************************\n");
-        }
-
-    });
-}
-
-function getDirectories(directory) {
-    var d;
-    fs.readdir(directory, function(err, files) {
-        if (err) {
-            throw err;
-        }
-
-        d = files.map(function(file) {
-            return path.join(directory, file);
-        }).filter(function(file) {
-            return fs.statSync(file).isDirectory();
-        });
-
-        if (debug) {
-            console.log("********* Getting Directories *********");
-
-            d.forEach(function(file) {
-                console.log("%s (%s)", file, path.dirname(file));
-            });
-            console.log("***************************************");
-
+    console.log(sliceType);
+    f.forEach(function(file) {
+        if (path.extname(file) == '.gcode') {
+            console.log("%s (%s)", file, path.extname(file));
         }
     });
+
+    var p = filterFilesByExt(printpath, f, sliceType);
+
+    if (debug) {
+        console.log("********* Getting slices *********");
+        p.forEach(function(file) {
+            console.log("%s (%s)", file, path.extname(file));
+        });
+        console.log("************************************\n");
+    }
+    // console.log(p.size());
+
+    return p;
 }
